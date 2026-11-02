@@ -1,116 +1,293 @@
 package Parser;
 
-import java.util.Arrays;
+import Parser.lexer.Token;
+import Parser.lexer.TokenType;
+import Parser.lexer.Tokenizer;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class Parser {
 
-    public static QuerryObj readRaw(String req) {
+    private List<Token> tokens;
+    private int position;
 
-        QuerryObj querry = new QuerryObj();
+    public QuerryObj readRaw(String sql) {
 
-        // SELECT
-        String[] partes = req.split("(?i)\\s+FROM\\s+", 2);
+        // 1. Tokenização
+        Tokenizer tokenizer = new Tokenizer(sql);
 
-        if (partes.length < 2) {
-            throw new IllegalArgumentException(
-                    "Consulta SQL inválida: FROM não encontrado."
+        this.tokens = tokenizer.tokenize();
+        this.position = 0;
+
+        // 2. Criação da consulta
+        QuerryObj query = new QuerryObj();
+
+        // 3. Análise sintática
+        parseSelect(query);
+        parseFrom(query);
+        parseJoins(query);
+        parseWhere(query);
+
+        match(TokenType.SEMICOLON);
+
+        expect(
+                TokenType.EOF,
+                "Final inesperado da consulta."
+        );
+
+        // 4. Validação semântica
+        List<String> errors = SemanticValidator.validate(query);
+
+        if (!errors.isEmpty()) {
+            throw new SemanticException(
+                    String.join("; ", errors)
             );
         }
 
-        if (!partes[0].trim().matches("(?is)^SELECT\\s+.+")) {
-            throw new IllegalArgumentException(
-                    "Consulta SQL inválida: SELECT não encontrado."
-            );
-        }
+        return query;
+    }
 
-        String colunasTexto = partes[0].replaceFirst(
-                "(?i)^\\s*SELECT\\s+", ""
-        );
+    // SELECT
+    private void parseSelect(QuerryObj query) {
 
-        querry.addColumns(
-                Arrays.stream(colunasTexto.split(","))
-                        .map(String::trim)
-                        .map(coluna -> {
+        expect(TokenType.SELECT, "Esperado SELECT.");
 
-                            String[] partesColuna = coluna.split("\\.", 2);
+        List<ColumnObj> columns = new ArrayList<>();
 
-                            if (partesColuna.length == 2) {
-                                return new ColumnObj(
-                                        partesColuna[0].trim(),
-                                        partesColuna[1].trim()
-                                );
-                            }
+        do {
 
-                            return new ColumnObj(null, coluna.trim());
+            columns.add(parseColumn());
 
-                        })
-                        .toList()
-        );
-
-        // FROM
-        String[] partesFrom = partes[1].split(
-                "(?i)\\s+WHERE\\s+", 2
-        );
-
-        String tablesTexto = partesFrom[0].trim();
-
-        querry.addTables(
-                Arrays.stream(tablesTexto.split("(?i)\\s+JOIN\\s+"))
-                        .map(String::trim)
-                        .toList()
-        );
-
-        // WHERE
-        if (partesFrom.length > 1) {
-
-            String whereTexto = partesFrom[1].trim();
-
-            String[] condicoes = whereTexto.split(
-                    "(?i)\\s+AND\\s+"
-            );
-
-            for (String condicao : condicoes) {
-
-                String[] elementos = condicao.split(
-                        "\\s*(>=|<=|!=|<>|=|>|<)\\s*", 2
-                );
-
-                if (elementos.length < 2) {
-                    throw new IllegalArgumentException(
-                            "Condição WHERE inválida: " + condicao
-                    );
-                }
-
-                String att1 = elementos[0].trim();
-                String att2 = elementos[1].trim();
-
-                String relacionamento = condicao.substring(
-                        att1.length(),
-                        condicao.length() - att2.length()
-                ).trim();
-
-                querry.addWheres(
-                        Arrays.asList(
-                                new WhereClauses(
-                                        att1,
-                                        relacionamento,
-                                        att2
-                                )
-                        )
-                );
+            if (!match(TokenType.COMMA)) {
+                break;
             }
+
+        } while (true);
+
+        query.addColumns(columns);
+
+        expect(TokenType.FROM, "Esperado FROM após as colunas.");
+    }
+
+    // Identifica uma coluna: Nome ou Cliente.Nome
+    private ColumnObj parseColumn() {
+
+        Token first = expect(
+                TokenType.IDENTIFIER,
+                "Esperado nome de coluna."
+        );
+
+        if (match(TokenType.DOT)) {
+
+            Token second = expect(
+                    TokenType.IDENTIFIER,
+                    "Esperado nome da coluna após o ponto."
+            );
+
+            return new ColumnObj(first.value(), second.value());
         }
 
-        // Validação da consulta
-        List<String> erros = DataBase.validateQuery(querry);
+        return new ColumnObj(null, first.value());
+    }
 
-        if (!erros.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Erro na consulta SQL: " + String.join("; ", erros)
+    // FROM
+    private void parseFrom(QuerryObj query) {
+
+        Token table = expect(
+                TokenType.IDENTIFIER,
+                "Esperado nome de tabela após FROM."
+        );
+
+        query.addTables(List.of(table.value()));
+    }
+
+    // JOIN
+    private void parseJoins(QuerryObj query) {
+
+        while (match(TokenType.JOIN)) {
+
+            parseJoin(query);
+
+        }
+    }
+
+    private void parseJoin(QuerryObj query) {
+
+        Token table = expect(
+                TokenType.IDENTIFIER,
+                "Esperado nome da tabela após JOIN."
+        );
+
+        expect(
+                TokenType.ON,
+                "Esperado ON após o nome da tabela do JOIN."
+        );
+
+        ColumnObj att1 = parseColumn();
+
+        Token operator = expectOperator();
+
+        ColumnObj att2 = parseColumn();
+
+        JoinTuple join = new JoinTuple(
+                table.value(),
+                att1.table() + "." + att1.Column(),
+                operator.value(),
+                att2.table() + "." + att2.Column()
+        );
+
+        query.addTables(List.of(table.value()));
+        query.addJoin(join);
+    }
+
+    // WHERE
+    private void parseWhere(QuerryObj query) {
+
+        if (!match(TokenType.WHERE)) {
+            return;
+        }
+
+        WhereClauses condition = parseLogicalCondition();
+
+        query.addWheres(List.of(condition));
+    }
+
+    private WhereClauses parseLogicalCondition() {
+
+        WhereClauses left = parsePrimaryCondition();
+
+        while (match(TokenType.AND)) {
+
+            WhereClauses right = parsePrimaryCondition();
+
+            left = new WhereClauses(
+                    left,
+                    "AND",
+                    right
             );
         }
 
-        return querry;
+        return left;
+    }
+
+    private WhereClauses parsePrimaryCondition() {
+
+        if (match(TokenType.OPEN_PAREN)) {
+
+            WhereClauses condition = parseLogicalCondition();
+
+            expect(
+                    TokenType.CLOSE_PAREN,
+                    "Esperado ')' para fechar a condição."
+            );
+
+            return condition;
+        }
+
+        return parseCondition();
+    }
+
+    private WhereClauses parseCondition() {
+        Operand att1 = parseOperand();
+
+        Token operator = expectOperator();
+
+        Operand att2 = parseOperand();
+
+        return new WhereClauses(
+                att1,
+                operator.value(),
+                att2
+        );
+    }
+
+    private Operand parseOperand() {
+        Token token = peek();
+
+        if (match(TokenType.IDENTIFIER)) {
+            String value = token.value();
+
+            if (match(TokenType.DOT)) {
+                Token column = expect(
+                        TokenType.IDENTIFIER,
+                        "Esperado nome da coluna após '.'."
+                );
+
+                value += "." + column.value();
+            }
+
+            return new Operand(value, OperandType.IDENTIFIER);
+        }
+
+        if (match(TokenType.NUMBER)) {
+            return new Operand(token.value(), OperandType.NUMBER);
+        }
+
+        if (match(TokenType.STRING)) {
+            return new Operand(token.value(), OperandType.STRING);
+        }
+
+        throw new SyntaxException(
+                "Esperado identificador, número ou texto na posição " +
+                        token.position()
+        );
+    }
+
+    private Token expectOperator() {
+
+        TokenType type = peek().type();
+
+        switch (type) {
+
+            case EQUAL:
+            case GREATER:
+            case LESS:
+            case GREATER_EQUAL:
+            case LESS_EQUAL:
+            case NOT_EQUAL:
+                position++;
+                return tokens.get(position - 1);
+
+            default:
+                throw new SyntaxException(
+                        "Erro sintático na posição " +
+                                peek().position() +
+                                ": operador inválido na condição ON."
+                );
+        }
+    }
+
+    // Verifica se o próximo token possui o tipo esperado
+    private Token expect(TokenType type, String errorMessage) {
+
+        Token current = peek();
+
+        if (current.type() != type) {
+            throw new SyntaxException(
+                    "Erro sintático na posição " +
+                            current.position() + ": " + errorMessage
+            );
+        }
+
+        position++;
+
+        return current;
+    }
+
+    // Verifica e consome um token caso corresponda
+    private boolean match(TokenType type) {
+
+        if (peek().type() == type) {
+            position++;
+            return true;
+        }
+
+        return false;
+    }
+
+    // Retorna o token atual
+    private Token peek() {
+        return tokens.get(position);
     }
 }

@@ -123,13 +123,13 @@ public class DataBase {
         for (ColumnObj column : query.getColumns()) {
 
             // SELECT *
-            if (column.column().equals("*")) {
+            if (column.Column().equals("*")) {
                 continue;
             }
 
             // Verifica se a tabela foi identificada
             if (column.table() == null) {
-                errors.add("Coluna não encontrada: " + column.column());
+                errors.add("Coluna não encontrada: " + column.Column());
                 continue;
             }
 
@@ -153,9 +153,9 @@ public class DataBase {
             }
 
             // Verifica se a coluna pertence à tabela
-            if (!existsColumn(column.table(), column.column())) {
+            if (!existsColumn(column.table(), column.Column())) {
                 errors.add(
-                        "Coluna " + column.column() +
+                        "Coluna " + column.Column() +
                                 " não encontrada na tabela " + column.table()
                 );
             }

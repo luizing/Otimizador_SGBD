@@ -5,10 +5,10 @@ import java.util.List;
 
 public class QuerryObj {
 
-    List<ColumnObj> columns = new ArrayList<>();
-    List<String> tables = new ArrayList<>();
-    List<JoinTuple> joins = new ArrayList<>();
-    List<WhereClauses> wheres = new ArrayList<>();
+    private final List<ColumnObj> columns = new ArrayList<>();
+    private final List<String> tables = new ArrayList<>();
+    private final List<JoinTuple> joins = new ArrayList<>();
+    private final List<WhereClauses> wheres = new ArrayList<>();
 
     public void addColumns(List<ColumnObj> col) {
         this.columns.addAll(col);
@@ -22,12 +22,20 @@ public class QuerryObj {
         this.wheres.addAll(whe);
     }
 
+    public void addJoin(JoinTuple join) {
+        this.joins.add(join);
+    }
+
     public List<ColumnObj> getColumns() {
         return columns;
     }
 
     public List<String> getTables() {
         return tables;
+    }
+
+    public List<JoinTuple> getJoins() {
+        return joins;
     }
 
     public List<WhereClauses> getWheres() {
