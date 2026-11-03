@@ -1,11 +1,17 @@
-package Parser;
+import Parser.Parser;
+import Parser.QuerryObj;
+import Parser.SyntaxException;
+import Parser.SemanticException;
+
+import RelationalAlgebra.RelationalAlgebraConverter;
+import RelationalAlgebra.RelationalExpression;
+import RelationalAlgebra.RelationalFormatter;
 
 import java.util.List;
 
 public class Main {
 
     public static void main(String[] args) {
-
 
         List<String> queries = List.of(
 
@@ -73,32 +79,58 @@ public class Main {
                 """
         );
 
-
+        // HU01 - Parser
         Parser parser = new Parser();
+
+        // HU02 - Componentes de conversão
+        RelationalAlgebraConverter converter =
+                new RelationalAlgebraConverter();
+
+        RelationalFormatter formatter =
+                new RelationalFormatter();
 
         for (String sql : queries) {
 
-            System.out.println("\n==========================");
-            System.out.println("CONSULTA: " + sql);
+            System.out.println("\n==================================");
+            System.out.println("CONSULTA SQL:");
+            System.out.println(sql);
 
             try {
 
+                // ETAPA 1 - Parsing e validação (HU01)
                 QuerryObj result = parser.readRaw(sql);
 
-                System.out.println("Consulta válida!");
+                System.out.println("\n[HU01] Consulta válida!");
                 System.out.println(result);
+
+                // ETAPA 2 - Conversão para álgebra relacional (HU02)
+                RelationalExpression expression =
+                        converter.convert(result);
+
+                // ETAPA 3 - Formatação da expressão
+                String algebra = formatter.format(expression);
+
+                System.out.println("\n[HU02] ÁLGEBRA RELACIONAL:");
+                System.out.println(algebra);
 
             } catch (SyntaxException e) {
 
-                System.out.println("ERRO SINTÁTICO:");
+                System.out.println("\nERRO SINTÁTICO:");
                 System.out.println(e.getMessage());
 
             } catch (SemanticException e) {
 
-                System.out.println("ERRO SEMÂNTICO:");
+                System.out.println("\nERRO SEMÂNTICO:");
+                System.out.println(e.getMessage());
+
+            } catch (IllegalArgumentException e) {
+
+                System.out.println("\nERRO NA CONVERSÃO:");
                 System.out.println(e.getMessage());
 
             }
+
+            System.out.println("\n==================================");
         }
     }
 }
