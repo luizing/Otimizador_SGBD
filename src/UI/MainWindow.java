@@ -3,6 +3,15 @@ package UI;
 import Graph.OperatorGraphBuilder;
 import Graph.OperatorGraphPanel;
 import Graph.OperatorNode;
+
+import RelationalAlgebra.RelationalAlgebraConverter;
+import RelationalAlgebra.RelationalExpression;
+
+import hu04.integracao.AdaptadorAlgebra;
+import hu04.integracao.AdaptadorGrafico;
+import hu04.modelo.NoOperador;
+import hu04.otimizacao.OtimizarConsulta;
+
 import Parser.Parser;
 import Parser.QuerryObj;
 import Parser.SemanticException;
@@ -42,6 +51,7 @@ public class MainWindow extends JFrame {
     private final JTextArea sqlInput = new JTextArea(EXAMPLE_QUERY, 8, 80);
     private final JTextArea statusArea = new JTextArea(2, 80);
     private final OperatorGraphPanel originalGraphPanel = new OperatorGraphPanel();
+    private final OperatorGraphPanel optimizedGraphPanel = new OperatorGraphPanel();
 
     public MainWindow() {
         super("Processador de Consultas");
@@ -89,12 +99,37 @@ public class MainWindow extends JFrame {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Grafo original", graphScroll);
 
+        JScrollPane optimizedScroll = new JScrollPane(optimizedGraphPanel);
+        optimizedScroll.setPreferredSize(new Dimension(800, 500));
+        optimizedScroll.getVerticalScrollBar().setUnitIncrement(16);
+        optimizedScroll.getHorizontalScrollBar().setUnitIncrement(16);
+
+        tabs.addTab("Grafo otimizado", optimizedScroll);
+
         return tabs;
     }
 
     private void analyze() {
         try {
             QuerryObj query = new Parser().readRaw(sqlInput.getText());
+            // HU02: gera a arvore de algebra relacional.
+            RelationalExpression expressao =
+                    new RelationalAlgebraConverter().convert(query);
+
+            // HU04: converte a arvore para o modelo do otimizador.
+            NoOperador arvoreOriginal =
+                    new AdaptadorAlgebra().converter(expressao);
+
+            // HU04: executa as heuristicas de otimizacao.
+            NoOperador arvoreOtimizada =
+                    new OtimizarConsulta().otimizar(arvoreOriginal);
+
+            // Integracao HU04 -> HU03: converte para o modelo grafico.
+            OperatorNode grafoOtimizado =
+                    new AdaptadorGrafico().converter(arvoreOtimizada);
+
+            // HU03: desenha o resultado otimizado.
+            optimizedGraphPanel.setGraph(grafoOtimizado);
             OperatorNode graph = OperatorGraphBuilder.build(query);
 
             originalGraphPanel.setGraph(graph);
@@ -112,6 +147,7 @@ public class MainWindow extends JFrame {
 
     private void showError(String kind, String message) {
         originalGraphPanel.setGraph(null);
+        optimizedGraphPanel.setGraph(null);
 
         // As mensagens do parser já começam com "Erro sintático na posição"
         String text = message.startsWith(kind)

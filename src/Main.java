@@ -9,6 +9,8 @@ import RelationalAlgebra.RelationalFormatter;
 
 import java.util.List;
 
+import UI.MainWindow;
+
 public class Main {
 
     public static void main(String[] args) {
@@ -131,6 +133,9 @@ public class Main {
             }
 
             System.out.println("\n==================================");
+
         }
+        
+        MainWindow.main(args);
     }
 }
