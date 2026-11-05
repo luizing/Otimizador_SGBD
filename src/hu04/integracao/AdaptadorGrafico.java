@@ -45,11 +45,7 @@ public class AdaptadorGrafico {
             case PROJECAO -> OperatorType.PROJECTION;
             case JUNCAO -> OperatorType.JOIN;
 
-            case PRODUTO_CARTESIANO ->
-                    throw new IllegalArgumentException(
-                            "A HU03 nao possui representacao para "
-                            + "produto cartesiano."
-                    );
+            case PRODUTO_CARTESIANO -> OperatorType.CROSS;
         };
     }
 }

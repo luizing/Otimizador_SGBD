@@ -2,7 +2,11 @@
 package Parser;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class SemanticValidator {
 
@@ -36,14 +40,8 @@ public class SemanticValidator {
         // 3. Validar JOINs
         for (JoinTuple join : query.getJoins()) {
 
-            validateReference(
-                    join.att1(),
-                    query.getTables(),
-                    errors
-            );
-
-            validateReference(
-                    join.att2(),
+            validateWhere(
+                    join.condition(),
                     query.getTables(),
                     errors
             );
@@ -58,7 +56,100 @@ public class SemanticValidator {
             );
         }
 
-        return errors;
+        // 5. Validar a ligação entre as tabelas, com os nomes já conferidos
+        if (errors.isEmpty()) {
+            validateJoinOrder(query, errors);
+        }
+
+        // Uma tabela inexistente não precisa ser informada duas vezes
+        return new ArrayList<>(new LinkedHashSet<>(errors));
+    }
+
+    // Cada JOIN precisa ligar a tabela nova a uma tabela já disponível;
+    // sem isso, a junção equivale a um produto cartesiano.
+    private static void validateJoinOrder(
+            QuerryObj query,
+            List<String> errors
+    ) {
+        Set<String> available = new HashSet<>();
+        available.add(normalize(query.getTables().get(0)));
+
+        for (JoinTuple join : query.getJoins()) {
+
+            String newTable = normalize(join.table());
+
+            if (available.contains(newTable)) {
+                errors.add(
+                        "Tabela repetida no JOIN: " + join.table() +
+                                ". Apelidos de tabela não fazem parte do trabalho."
+                );
+                continue;
+            }
+
+            Set<String> used = new HashSet<>();
+            collectTables(join.condition(), query.getTables(), used);
+
+            boolean usesNewTable = used.remove(newTable);
+
+            Set<String> future = new HashSet<>(used);
+            future.removeAll(available);
+
+            if (!future.isEmpty()) {
+                for (String table : future) {
+                    errors.add(
+                            "O ON do JOIN com " + join.table() +
+                                    " usa a tabela " + table +
+                                    ", que só é juntada depois deste JOIN."
+                    );
+                }
+            } else if (!usesNewTable || used.isEmpty()) {
+                errors.add(
+                        "O ON do JOIN com " + join.table() +
+                                " precisa relacionar essa tabela" +
+                                " a uma tabela anterior da consulta."
+                );
+            }
+
+            available.add(newTable);
+        }
+    }
+
+    private static void collectTables(
+            WhereClauses condition,
+            List<String> tables,
+            Set<String> found
+    ) {
+        if (condition.isComposite()) {
+            collectTables(condition.getLeft(), tables, found);
+            collectTables(condition.getRight(), tables, found);
+            return;
+        }
+
+        collectTable(condition.getAtt1(), tables, found);
+        collectTable(condition.getAtt2(), tables, found);
+    }
+
+    private static void collectTable(
+            Operand operand,
+            List<String> tables,
+            Set<String> found
+    ) {
+        if (operand.type() != OperandType.IDENTIFIER) {
+            return;
+        }
+
+        String[] parts = operand.value().split("\\.", 2);
+
+        if (parts.length == 2) {
+            found.add(normalize(parts[0]));
+        } else {
+            DataBase.findTablesWithColumn(parts[0], tables)
+                    .forEach(table -> found.add(normalize(table)));
+        }
+    }
+
+    private static String normalize(String name) {
+        return name.toLowerCase(Locale.ROOT);
     }
 
     private static void validateWhere(

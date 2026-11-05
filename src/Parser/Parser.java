@@ -31,10 +31,13 @@ public class Parser {
 
         match(TokenType.SEMICOLON);
 
-        expect(
-                TokenType.EOF,
-                "Final inesperado da consulta."
-        );
+        if (peek().type() != TokenType.EOF) {
+            throw new SyntaxException(
+                    "Erro sintático na posição " + peek().position() +
+                            ": trecho inesperado '" + peek().value() +
+                            "'. Use apenas SELECT, FROM, JOIN, ON, WHERE e AND."
+            );
+        }
 
         // 4. Validação semântica
         List<String> errors = SemanticValidator.validate(query);
@@ -45,7 +48,7 @@ public class Parser {
             );
         }
 
-        return query;
+        return QueryNormalizer.normalize(query);
     }
 
     // SELECT
@@ -124,17 +127,9 @@ public class Parser {
                 "Esperado ON após o nome da tabela do JOIN."
         );
 
-        ColumnObj att1 = parseColumn();
-
-        Token operator = expectOperator();
-
-        ColumnObj att2 = parseColumn();
-
         JoinTuple join = new JoinTuple(
                 table.value(),
-                att1.table() + "." + att1.Column(),
-                operator.value(),
-                att2.table() + "." + att2.Column()
+                parseLogicalCondition()
         );
 
         query.addTables(List.of(table.value()));
@@ -253,7 +248,8 @@ public class Parser {
                 throw new SyntaxException(
                         "Erro sintático na posição " +
                                 peek().position() +
-                                ": operador inválido na condição ON."
+                                ": operador inválido na condição. " +
+                                "Use =, >, <, >=, <= ou <>."
                 );
         }
     }

@@ -115,6 +115,22 @@ public class IdentificadorNosAfetados {
                     List.of()
                 );
 
+            // Duas projecoes iguais foram unidas: a que restou e a afetada.
+            if (RastreadorHeuristicas.SIMPLIFICACAO.equals(heuristica)
+                    && atual.no().getTipo() == TipoOperador.PROJECAO
+                    && correspondentesAntes.size() > 1
+                    && correspondentesDepois.size() == 1) {
+
+                encontrados.add(criarRegistro(
+                    etapa,
+                    heuristica,
+                    TipoAlteracao.MODIFICADO,
+                    atual
+                ));
+
+                continue;
+            }
+
             // Assinaturas repetidas tornam a identidade ambigua.
             if (correspondentesAntes.size() > 1
                     || correspondentesDepois.size() > 1) {
@@ -127,26 +143,38 @@ public class IdentificadorNosAfetados {
 
                 // A mudanca de pai e uma evidencia mais
                 // especifica que a simples mudanca de caminho.
-                if (!Objects.equals(
-                        anterior.assinaturaPai(),
-                        atual.assinaturaPai()
-                    )) {
+                boolean paiMudou = !Objects.equals(
+                    anterior.assinaturaPai(),
+                    atual.assinaturaPai()
+                );
 
-                    // Evita atribuir deslocamentos a tabelas,
-                    // que normalmente apenas acompanham
-                    // transformacoes dos operadores superiores.
-                    if (atual.no().getTipo()
-                            != TipoOperador.TABELA) {
+                boolean filhosMudaram = !filhosCorrespondem(
+                    anterior.no(),
+                    atual.no()
+                );
 
-                        encontrados.add(criarRegistro(
-                            etapa,
-                            heuristica,
-                            TipoAlteracao.REPOSICIONADO,
-                            atual
-                        ));
-                    }
+                TipoAlteracao alteracao = classificarMovimento(
+                    heuristica,
+                    atual.no().getTipo(),
+                    paiMudou,
+                    filhosMudaram
+                );
+
+                if (alteracao != null) {
+                    encontrados.add(criarRegistro(
+                        etapa,
+                        heuristica,
+                        alteracao,
+                        atual
+                    ));
                 }
 
+                continue;
+            }
+
+            // Um operador novo so conta para a heuristica que produz
+            // esse tipo de operador.
+            if (!tipoAlterado(heuristica, atual.no().getTipo())) {
                 continue;
             }
 
@@ -181,6 +209,60 @@ public class IdentificadorNosAfetados {
         }
 
         return encontrados;
+    }
+
+    /**
+     * Um no tambem muda de pai quando apenas o operador vizinho foi movido.
+     * Por isso, o movimento so conta para a heuristica que realmente
+     * desloca esse tipo de operador.
+     */
+    private TipoAlteracao classificarMovimento(
+            String heuristica,
+            TipoOperador tipo,
+            boolean paiMudou,
+            boolean filhosMudaram
+    ) {
+        boolean movido = switch (heuristica) {
+            case RastreadorHeuristicas.ANTECIPACAO ->
+                tipo == TipoOperador.SELECAO && paiMudou;
+
+            case RastreadorHeuristicas.PRIORIZACAO ->
+                tipo == TipoOperador.JUNCAO
+                    && (paiMudou || filhosMudaram);
+
+            default -> false;
+        };
+
+        if (movido) {
+            return TipoAlteracao.REPOSICIONADO;
+        }
+
+        return RastreadorHeuristicas.SIMPLIFICACAO.equals(heuristica)
+                && tipo == TipoOperador.PROJECAO
+                && filhosMudaram
+            ? TipoAlteracao.MODIFICADO
+            : null;
+    }
+
+    private boolean tipoAlterado(
+            String heuristica,
+            TipoOperador tipo
+    ) {
+        return switch (heuristica) {
+            case RastreadorHeuristicas.ELIMINACAO_PRODUTO,
+                 RastreadorHeuristicas.PRIORIZACAO ->
+                tipo == TipoOperador.JUNCAO;
+
+            case RastreadorHeuristicas.DECOMPOSICAO,
+                 RastreadorHeuristicas.ANTECIPACAO ->
+                tipo == TipoOperador.SELECAO;
+
+            case RastreadorHeuristicas.REDUCAO_ATRIBUTOS,
+                 RastreadorHeuristicas.SIMPLIFICACAO ->
+                tipo == TipoOperador.PROJECAO;
+
+            default -> true;
+        };
     }
 
     private boolean filhosCorrespondem(

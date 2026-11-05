@@ -7,9 +7,11 @@ import Graph.OperatorNode;
 
 import RelationalAlgebra.RelationalAlgebraConverter;
 import RelationalAlgebra.RelationalExpression;
+import RelationalAlgebra.RelationalFormatter;
 
 import hu04.integracao.AdaptadorAlgebra;
 import hu04.integracao.AdaptadorGrafico;
+import hu04.integracao.FormatadorArvore;
 import hu04.modelo.NoOperador;
 
 import hu05.modelo.PassoExecucao;
@@ -53,6 +55,9 @@ public class MainWindow extends JFrame {
               AND pedido.ValorTotalPedido = 0;
             """;
 
+    private static final String EMPTY_ALGEBRA =
+            "Clique em Analisar para gerar a algebra relacional.";
+
     private static final Color SUCCESS_COLOR =
             new Color(0x1E, 0x7B, 0x3A);
 
@@ -64,6 +69,10 @@ public class MainWindow extends JFrame {
 
     private final JTextArea statusArea =
             new JTextArea(2, 80);
+
+    // HU02: exibe a expressao original e a otimizada.
+    private final JTextArea algebraArea =
+            new JTextArea();
 
     private final OperatorGraphPanel originalGraphPanel =
             new OperatorGraphPanel();
@@ -132,6 +141,31 @@ public class MainWindow extends JFrame {
         return panel;
     }
 
+    private JScrollPane buildAlgebraTab() {
+        algebraArea.setEditable(false);
+
+        // O simbolo da juncao nao existe em todas as fontes.
+        algebraArea.setFont(
+                OperatorGraphPanel.findSymbolFont().deriveFont(15f)
+        );
+
+        algebraArea.setLineWrap(true);
+        algebraArea.setWrapStyleWord(true);
+
+        algebraArea.setBorder(
+                BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        );
+
+        algebraArea.setText(EMPTY_ALGEBRA);
+
+        JScrollPane scroll = new JScrollPane(algebraArea);
+
+        scroll.setPreferredSize(new Dimension(800, 500));
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+
+        return scroll;
+    }
+
     private JTabbedPane buildResultTabs() {
         JScrollPane graphScroll =
                 new JScrollPane(originalGraphPanel);
@@ -147,6 +181,8 @@ public class MainWindow extends JFrame {
                 .setUnitIncrement(16);
 
         JTabbedPane tabs = new JTabbedPane();
+
+        tabs.addTab("Álgebra relacional", buildAlgebraTab());
 
         tabs.addTab("Grafo original", graphScroll);
 
@@ -236,6 +272,13 @@ public class MainWindow extends JFrame {
             // HU03: desenha o resultado otimizado.
             optimizedGraphPanel.setGraph(grafoOtimizado);
 
+            // HU02: mostra a conversao e o resultado das heuristicas.
+            algebraArea.setText(
+                    formatAlgebra(expressao, arvoreOtimizada)
+            );
+
+            algebraArea.setCaretPosition(0);
+
             OperatorNode graph =
                     OperatorGraphBuilder.build(query);
 
@@ -256,6 +299,16 @@ public class MainWindow extends JFrame {
         } catch (SemanticException e) {
             showError("Erro semântico", e.getMessage());
         }
+    }
+
+    private String formatAlgebra(
+            RelationalExpression original,
+            NoOperador otimizada
+    ) {
+        return "CONSULTA EM ÁLGEBRA RELACIONAL\n\n"
+                + new RelationalFormatter().format(original)
+                + "\n\n\nÁLGEBRA RELACIONAL OTIMIZADA\n\n"
+                + new FormatadorArvore().formatar(otimizada);
     }
 
     /**
@@ -301,13 +354,15 @@ public class MainWindow extends JFrame {
             texto.append("Heuristicas associadas:\n");
 
             if (passo.getHeuristicas().isEmpty()) {
-                texto.append("  Nenhuma identificada\n");
+                texto.append("  Nenhuma nesta etapa\n");
             } else {
                 for (String heuristica :
                         passo.getHeuristicas()) {
                     texto.append("  - ")
                             .append(heuristica)
-                            .append("\n");
+                            .append(" (")
+                            .append(explainHeuristic(heuristica))
+                            .append(")\n");
                 }
             }
 
@@ -337,6 +392,25 @@ public class MainWindow extends JFrame {
         return texto.toString();
     }
 
+    // Liga cada etapa as heuristicas basicas do enunciado.
+    private String explainHeuristic(String heuristica) {
+        return switch (heuristica) {
+            case RastreadorHeuristicas.ELIMINACAO_PRODUTO ->
+                    "evita produto cartesiano";
+            case RastreadorHeuristicas.DECOMPOSICAO ->
+                    "separa as condicoes para aplicar cada selecao";
+            case RastreadorHeuristicas.ANTECIPACAO ->
+                    "reduz tuplas primeiro";
+            case RastreadorHeuristicas.PRIORIZACAO ->
+                    "executa antes a juncao mais restritiva";
+            case RastreadorHeuristicas.REDUCAO_ATRIBUTOS ->
+                    "reduz atributos";
+            case RastreadorHeuristicas.SIMPLIFICACAO ->
+                    "remove projecao redundante";
+            default -> "heuristica aplicada";
+        };
+    }
+
     /**
      * HU05: apresenta os numeros dos passos
      * dos quais a operacao atual depende.
@@ -364,6 +438,8 @@ public class MainWindow extends JFrame {
     ) {
         originalGraphPanel.setGraph(null);
         optimizedGraphPanel.setGraph(null);
+
+        algebraArea.setText(EMPTY_ALGEBRA);
 
         // HU05: evita mostrar um plano antigo
         // quando a consulta atual for invalida.

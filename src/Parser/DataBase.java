@@ -60,6 +60,28 @@ public class DataBase {
         return name.trim().toLowerCase(Locale.ROOT);
     }
 
+    // Retorna o nome da tabela exatamente como está no Modelo Relacional
+    public static String canonicalTable(String table) {
+
+        String normalizedTable = normalize(table);
+
+        return schema.keySet().stream()
+                .filter(t -> normalize(t).equals(normalizedTable))
+                .findFirst()
+                .orElse(table);
+    }
+
+    // Retorna o nome da coluna exatamente como está no Modelo Relacional
+    public static String canonicalColumn(String table, String column) {
+
+        String normalizedColumn = normalize(column);
+
+        return schema.getOrDefault(canonicalTable(table), Set.of()).stream()
+                .filter(c -> normalize(c).equals(normalizedColumn))
+                .findFirst()
+                .orElse(column);
+    }
+
     // Verifica se uma tabela existe
     public static boolean existsTable(String table) {
 

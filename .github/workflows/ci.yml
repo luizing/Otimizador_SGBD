@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Compilar
+        run: javac -encoding UTF-8 -d out/testes -sourcepath src src/UI/MainWindow.java src/Main.java src/hu04/teste/*.java src/hu05/testes/*.java
+      - name: Testar
+        run: |
+          for classe in \
+            hu04.teste.TestesIntegracao \
+            hu04.teste.TestesRegressao \
+            hu05.testes.TestesPlanoExecucao \
+            hu05.testes.TestesAssociacaoHeuristicas \
+            hu05.testes.TestesClassificacaoNos \
+            hu05.testes.TestesIdentificadorNosAfetados \
+            hu05.testes.TestesRastreadorHeuristicas
+          do
+            java -Dfile.encoding=UTF-8 -Djava.awt.headless=true -cp out/testes "$classe"
+          done

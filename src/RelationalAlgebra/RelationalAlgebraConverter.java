@@ -38,10 +38,7 @@ public class RelationalAlgebraConverter {
             RelationalExpression newTable =
                     RelationalExpression.table(join.table());
 
-            String condition =
-                    join.att1() + " " +
-                    join.relationship() + " " +
-                    join.att2();
+            String condition = formatCondition(join.condition());
 
             expression = RelationalExpression.join(
                     condition,

@@ -266,6 +266,7 @@ public class OperatorGraphPanel extends JPanel {
             case PROJECTION -> new Color(0xE3, 0xEE, 0xFB);
             case SELECTION -> new Color(0xFD, 0xF0, 0xD5);
             case JOIN -> new Color(0xE2, 0xF3, 0xE6);
+            case CROSS -> new Color(0xFB, 0xE4, 0xE1);
             case TABLE -> new Color(0xEE, 0xEF, 0xF1);
         };
     }
@@ -275,13 +276,14 @@ public class OperatorGraphPanel extends JPanel {
             case PROJECTION -> new Color(0x2F, 0x6D, 0xB5);
             case SELECTION -> new Color(0xB9, 0x83, 0x1A);
             case JOIN -> new Color(0x2E, 0x8B, 0x4A);
+            case CROSS -> new Color(0xB3, 0x26, 0x1E);
             case TABLE -> new Color(0x6B, 0x72, 0x7C);
         };
     }
 
     // O símbolo ⋈ não existe em todas as fontes
-    private static Font findSymbolFont() {
-        String symbols = "πσ⋈";
+    public static Font findSymbolFont() {
+        String symbols = "πσ⋈×";
         int style = Font.PLAIN;
         int size = 13;
 

@@ -14,6 +14,19 @@ import java.util.function.UnaryOperator;
 
 public class RastreadorHeuristicas {
 
+    public static final String ELIMINACAO_PRODUTO =
+        "Eliminacao de produto cartesiano";
+    public static final String DECOMPOSICAO =
+        "Decomposicao de selecoes";
+    public static final String ANTECIPACAO =
+        "Antecipacao de selecoes";
+    public static final String PRIORIZACAO =
+        "Priorizacao de juncoes";
+    public static final String REDUCAO_ATRIBUTOS =
+        "Reducao de atributos";
+    public static final String SIMPLIFICACAO =
+        "Simplificacao de projecoes";
+
     public record Etapa(
             int numero,
             String heuristica,
@@ -121,7 +134,7 @@ public class RastreadorHeuristicas {
 
         atual = executar(
             atual,
-            "Eliminacao de produto cartesiano",
+            ELIMINACAO_PRODUTO,
             ProdutoCartesianoHeuristica::evitarProdutoCartesiano,
             etapas,
             registros
@@ -129,7 +142,7 @@ public class RastreadorHeuristicas {
 
         atual = executar(
             atual,
-            "Decomposicao de selecoes",
+            DECOMPOSICAO,
             DecomposicaoSelecoes::decompor,
             etapas,
             registros
@@ -137,7 +150,7 @@ public class RastreadorHeuristicas {
 
         atual = executar(
             atual,
-            "Antecipacao de selecoes",
+            ANTECIPACAO,
             Heuristica::reduzirTuplas,
             etapas,
             registros
@@ -145,7 +158,7 @@ public class RastreadorHeuristicas {
 
         atual = executar(
             atual,
-            "Priorizacao de juncoes",
+            PRIORIZACAO,
             Heuristica::priorizarJuncoes,
             etapas,
             registros
@@ -153,7 +166,7 @@ public class RastreadorHeuristicas {
 
         atual = executar(
             atual,
-            "Reducao de atributos",
+            REDUCAO_ATRIBUTOS,
             Heuristica::reduzirAtributos,
             etapas,
             registros
@@ -161,7 +174,7 @@ public class RastreadorHeuristicas {
 
         atual = executar(
             atual,
-            "Simplificacao de projecoes",
+            SIMPLIFICACAO,
             SimplificadorProjecoes::simplificar,
             etapas,
             registros

@@ -251,7 +251,8 @@ public class TestesIntegracao {
             NoOperador filho = no.getEsquerdo();
 
             while (filho != null
-                    && filho.getTipo() == TipoOperador.PROJECAO) {
+                    && (filho.getTipo() == TipoOperador.PROJECAO
+                        || filho.getTipo() == TipoOperador.SELECAO)) {
                 filho = filho.getEsquerdo();
             }
 

@@ -5,6 +5,7 @@ public enum OperatorType {
     PROJECTION("π"),
     SELECTION("σ"),
     JOIN("⋈"),
+    CROSS("×"),
     TABLE("");
 
     private final String symbol;

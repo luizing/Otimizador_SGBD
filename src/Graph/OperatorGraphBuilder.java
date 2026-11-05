@@ -1,15 +1,10 @@
 package Graph;
 
-import Parser.JoinTuple;
 import Parser.QuerryObj;
-import Parser.SemanticException;
 import RelationalAlgebra.RelationalAlgebraConverter;
 import RelationalAlgebra.RelationalExpression;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 /**
  * Constrói o grafo NÃO otimizado a partir da álgebra relacional da HU2,
@@ -27,8 +22,6 @@ public final class OperatorGraphBuilder {
     }
 
     public static OperatorNode build(QuerryObj query) {
-
-        validateJoinDependencies(query);
 
         return build(new RelationalAlgebraConverter().convert(query));
     }
@@ -64,42 +57,5 @@ public final class OperatorGraphBuilder {
                     )
             );
         };
-    }
-
-    // O ON só pode usar tabelas que já estejam disponíveis naquele ponto da
-    // árvore; caso contrário, a junção dependeria de um resultado futuro.
-    private static void validateJoinDependencies(QuerryObj query) {
-
-        // A primeira tabela da lista é sempre a do FROM
-        Set<String> available = new HashSet<>();
-        available.add(normalize(query.getTables().get(0)));
-
-        for (JoinTuple join : query.getJoins()) {
-
-            available.add(normalize(join.table()));
-
-            requireAvailable(join.att1(), join, available);
-            requireAvailable(join.att2(), join, available);
-        }
-    }
-
-    private static void requireAvailable(
-            String reference,
-            JoinTuple join,
-            Set<String> available
-    ) {
-        String table = reference.split("\\.", 2)[0];
-
-        if (!available.contains(normalize(table))) {
-            throw new SemanticException(
-                    "O ON do JOIN com " + join.table() +
-                            " usa a tabela " + table +
-                            ", que só é juntada depois deste JOIN."
-            );
-        }
-    }
-
-    private static String normalize(String name) {
-        return name.toLowerCase(Locale.ROOT);
     }
 }

@@ -45,7 +45,9 @@ public class SimplificadorProjecoes {
                 && filho.getTipo() == TipoOperador.PROJECAO
                 && filho.getDireito() == null
                 && mesmosAtributos(no, filho)) {
-            return filho;
+            // Mantem a projecao de cima, que define o resultado da consulta.
+            no.setEsquerdo(filho.getEsquerdo());
+            return no;
         }
 
         // Caso 2: projecoes iguais separadas por uma selecao.
